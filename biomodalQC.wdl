@@ -30,7 +30,7 @@ workflow biomodalQC {
         work_dir: "Path to biomodal working directory"
     }
 
-    String output_path = "init_folder/dataset/" + run_directory + "/nf-result/" + "duet-1.1.2_" + tag + mode
+    String output_path = "init_folder/dataset/" + run_directory + "/nf-result/" + "duet-1.1.2_" + tag + "_" + mode
 
     call runBiomodalQC {
         input:
