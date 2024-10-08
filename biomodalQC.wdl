@@ -118,23 +118,23 @@ workflow biomodalQC {
         
         command <<<
             set -euo pipefail
+            mkdir -p ~{work_dir}/~{run_directory}/gsi-input
             mkdir init_folder
             cp -r $INIT_FOLDER/* ./init_folder/
             cd init_folder
-            cp /.mounts/labs/gsiprojects/gsi/gsiusers/gpeng/biomodal/biomodal_qc/nextflow.config .
-            mkdir -p ~{work_dir}/~{run_directory}/gsi-input
-            
+
             meta_file_path="~{work_dir}/~{run_directory}/meta_file.csv"
             input_path="~{work_dir}/~{run_directory}/gsi-input/"
+
             ln -s ~{fastqR1} ${input_path}
-            ln -s ~{fastqR2} ${input_path}
+            ln -s ~{fastqR2} ${input_path}   
             
             cat << EOF > ${meta_file_path}
                 sample_id, ~{library_name}
                 description, ~{group_desc}
             EOF
 
-            cat << EOF > input_config.txt
+            cat << EOF > ./input_config.txt
             tag=~{tag}
             run_name=~{run_name}
             sample_id=~{library_name}
@@ -147,8 +147,7 @@ workflow biomodalQC {
             run_directory=~{run_directory}
             work_dir=~{work_dir}
             EOF
-            cat ./input_config.txt
-
+            
             ./run_biomodal_qc.sh ./input_config.txt
         >>>
 
@@ -160,7 +159,7 @@ workflow biomodalQC {
 	}
 
 	output {
-		File dqsreport = "~{output_path}/dqsreport/~{library_name}.dqsummary.html"
+		File dqsreport = "~{output_path}/dqsreport/~{library_name}_dqsummary.html"
 		File pipelineSummary = "~{output_path}/pipeline_report/~{run_name}_~{mode}_Summary.csv"
 	}
 
