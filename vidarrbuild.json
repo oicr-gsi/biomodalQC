@@ -1,0 +1,6 @@
+{
+    "names": [
+        "biomodalQC"
+    ],
+    "wdl": "biomodalQC.wdl"
+}

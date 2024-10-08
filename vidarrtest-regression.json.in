@@ -1,0 +1,76 @@
+[
+    {
+        "arguments": {
+            "biomodalQC.runBiomodalQC.modules": "biomodalqc/1.0.0",
+            "biomodalQC.runBiomodalQC.timeout": 48,
+            "biomodalQC.run_name": "240426_M00753_0704_000000000-DNNHV",
+            "biomodalQC.runBiomodalQC.threads": 2,
+            "biomodalQC.work_dir": "",
+            "biomodalQC.tag": "KLCS",
+            "biomodalQC.mode": "6bp",
+            "biomodalQC.runBiomodalQC.jobMemory": 16,
+            "biomodalQC.run_directory": "240426_M00753_0704_000000000-DNNHV",
+            "biomodalQC.random_downsample": true,
+            "biomodalQC.subsample": "2000000",
+            "biomodalQC.lane": "L001",
+            "biomodalQC.group_desc": "Miseq_150274_Pool",
+            "biomodalQC.library_name": "KLCS-150274-Pl-P-PE-586-NN",
+            "biomodalQC.fastqR1": {
+                "contents": {
+                    "configuration": "/.mounts/labs/prod/vidarr/output-research/c6d9/925d/e905/c6d9925de9053348698a1cefc3086511978e02267ff4e8303d5c9992621767a9/KLCS_150274_Pl_P_PE_586_NN_240426_M00753_0704_000000000-DNNHV_1_ACTCTCGA-TGGTACAG_R1.fastq.gz",
+                    "externalIds": [
+                        {
+                            "id": "TEST",
+                            "provider": "TEST"
+                        }
+                    ]
+                },
+                "type": "EXTERNAL"
+            },
+            "biomodalQC.fastqR2": {
+                "contents": {
+                    "configuration": "/.mounts/labs/prod/vidarr/output-research/c6d9/925d/e905/c6d9925de9053348698a1cefc3086511978e02267ff4e8303d5c9992621767a9/KLCS_150274_Pl_P_PE_586_NN_240426_M00753_0704_000000000-DNNHV_1_ACTCTCGA-TGGTACAG_R2.fastq.gz",
+                    "externalIds": [
+                        {
+                            "id": "TEST",
+                            "provider": "TEST"
+                        }
+                    ]
+                },
+                "type": "EXTERNAL"
+            }
+        },
+        "description": "Run_biomodalQC_with_miseq_data",
+        "engineArguments": {
+            "write_to_cache": false,
+            "read_from_cache": false
+        },
+        "id": "KLCS-150274-Pl-P-PE-586-NN",
+        "metadata": {
+            "biomodalQC.dqsreport": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_biomodalQC_Run_biomodalQC_with_miseq_data_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "biomodalQC.pipelineSummary": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_biomodalQC_Run_biomodalQC_with_miseq_data_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            }
+        },
+        "validators": [
+            {
+                "metrics_calculate": "@CHECKOUT@/tests/calculate.sh",
+                "metrics_compare": "@CHECKOUT@/tests/compare.sh",
+                "output_metrics": "/.mounts/labs/gsi/testdata/biomodalQC/1.0.0/output_metrics/Run_biomodalQC_with_miseq_data.metrics",
+                "type": "script"
+            }
+        ]
+    }
+]

@@ -30,7 +30,7 @@ workflow biomodalQC {
         work_dir: "Path to biomodal working directory"
     }
 
-    String output_path = "data_sets/" + run_directory + "/nf-result" + "duet/1.1.2_" + tag + mode
+    String output_path = "init_folder/dataset/" + run_directory + "/nf-result/" + "duet-1.1.2_" + tag + mode
 
     call runBiomodalQC {
         input:
@@ -53,11 +53,12 @@ workflow biomodalQC {
             author: "Gavin Peng"
             email: "gpeng@oicr.on.ca"
             description: "Workflow for biomodalQC, QC workflow for biomodal pipeline"
-                dependencies: 
-                {
-                name: "biomodalqc/1.0.0",
-                url: "https://gitlab.oicr.on.ca/ResearchIT/modulator/-/blob/master/code/gsi/71_biomodalqc.yaml?ref_type=heads"
-                }
+                dependencies: [
+                    {
+                    name: "biomodalqc/1.0.0",
+                    url: "https://gitlab.oicr.on.ca/ResearchIT/modulator/-/blob/master/code/gsi/71_biomodalqc.yaml?ref_type=heads"
+                    }
+                ]
             output_meta: {
                 dqsreport: {
                     description: "Html file of QC metric tables and plots",
@@ -120,10 +121,10 @@ workflow biomodalQC {
             mkdir init_folder
             cp -r $INIT_FOLDER/* ./init_folder/
             cd init_folder
-            mkdir -p data_sets/~{run_directory}/gsi-input
+            mkdir -p dataset/~{run_directory}/gsi-input
             
-            meta_file_path="data_sets/~{run_directory}/meta_file.csv"
-            input_path="data_sets/~{run_directory}/gsi-input/"
+            meta_file_path="dataset/~{run_directory}/meta_file.csv"
+            input_path="dataset/~{run_directory}/gsi-input/"
             ln -s ~{fastqR1} ${input_path}
             ln -s ~{fastqR2} ${input_path}   
             
@@ -143,7 +144,7 @@ workflow biomodalQC {
             meta_file=${meta_file_path}
             data_path=${input_path}
             run_directory=~{run_directory}
-            work_dir="./"
+            work_dir="./dataset"
             EOF
             cat ./input_config.txt
 
