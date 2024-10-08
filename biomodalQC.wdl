@@ -8,9 +8,10 @@ workflow biomodalQC {
         String lane
         String mode
         String subsample
-        Boolean randon_downsample
+        Boolean random_downsample
         String group_desc
-        String data_path
+        File fastqR1
+        File fastqR2
         String run_directory
         String work_dir
     }
@@ -21,9 +22,10 @@ workflow biomodalQC {
         lane: "Sequencer lane number"
         mode: "Biomodal pipeline running mode"
         subsample: "The target number of reads to subsample for the input fastq file"
-        randon_downsample: "Specify whether use seqtk to choose random reads, if set to false then choose the top reads in fastq"
+        random_downsample: "Specify whether use seqtk to choose random reads, if set to false then choose the top reads in fastq"
         group_desc: "A text description of what the group ID means"
-        data_path: " Path to directory that contains the input fastq files"
+        fastqR1: "Fastq file for read 1"
+        fastqR2: "Fastq file for read 2"
         run_directory: "subdirectory under data_path with run name "
         work_dir: "Path to biomodal working directory"
     }
@@ -38,9 +40,10 @@ workflow biomodalQC {
         lane = lane,
         mode = mode,
         subsample = subsample,
-        randon_downsample = randon_downsample,
+        random_downsample = random_downsample,
         group_desc = group_desc,
-        data_path = data_path,
+        fastqR1 = fastqR1,
+        fastqR2 = fastqR2,
         run_directory = run_directory,
         work_dir = work_dir,
         output_path = output_path
@@ -68,10 +71,10 @@ workflow biomodalQC {
     }
 
     output {
-        File runBiomodalQC.dqsreport
-        File runBiomodalQC.pipelineSummary
+        File dqsreport = runBiomodalQC.dqsreport
+        File pipelineSummary = runBiomodalQC.pipelineSummary
     }
-
+}
     task runBiomodalQC{
         input {
             String tag
@@ -80,9 +83,10 @@ workflow biomodalQC {
             String lane
             String mode = "6bp"
             String subsample = 2000000
-            Boolean randon_downsample = true
+            Boolean random_downsample = true
             String group_desc
-            String data_path
+            File fastqR1
+            File fastqR2
             String run_directory
             String work_dir = "/scratch2/groups/gsi/bis/biomodal/"
             String output_path
@@ -98,9 +102,10 @@ workflow biomodalQC {
             lane: "Sequencer lane number"
             mode: "Biomodal pipeline running mode"
             subsample: "The target number of reads to subsample for the input fastq file"
-            randon_downsample: "Specify whether use seqtk to choose random reads, if set to false then choose the top reads in fastq"
+            random_downsample: "Specify whether use seqtk to choose random reads, if set to false then choose the top reads in fastq"
             group_desc: "A text description of what the group ID means"
-            data_path: " Path to directory that contains the input fastq files"
+            fastqR1: "Fastq file for read 1"
+            fastqR2: "Fastq file for read 2"
             run_directory: "subdirectory under data_path with run name "
             work_dir: "Path to biomodal working directory"
             output_path: "Path to biomodalQC outputs"
@@ -110,41 +115,41 @@ workflow biomodalQC {
             timeout: "Hours before task timeout"
         }
         
-        String meta_file_path = "data_sets/" + ~${run_directory} + "/meta_file.csv"
         command <<<
             set -euo pipefail
-            module load biomodalQC
             mkdir init_folder
             cp -r $INIT_FOLDER/* ./init_folder/
             cd init_folder
-
-            mkdir data_sets
-            mkdir data_sets/~${run_directory}
-            mkdir data_sets/~${run_directory}/gsi-input
-            ln -s ~{data_path} data_sets/~${run_directory}/gsi-input/ 
-
+            mkdir -p data_sets/~{run_directory}/gsi-input
             
-            cat << EOF > ${meta_file}
-                sample_id, ~{$library_name}
-                description, ~${group_desc}
+            meta_file_path="data_sets/~{run_directory}/meta_file.csv"
+            input_path="data_sets/~{run_directory}/gsi-input/"
+            ln -s ~{fastqR1} ${input_path}
+            ln -s ~{fastqR2} ${input_path}   
+            
+            cat << EOF > ${meta_file_path}
+                sample_id, ~{library_name}
+                description, ~{group_desc}
             EOF
 
             cat << EOF > input_config.txt
-                tag=~${tag}
-                run_name=$~{run_name}
-                sample_id=~${library_name}
-                lane=~${lane}
-                mode=~${mode}
-                subsample=~${subsample}
-                random_downsample=~${random_downsample}
-                meta_file=${meta_file}
-                data_path=~${data_sets}
-                run_directory=~${run_directory}
-                work_dir=~${work_dir}
+            tag=~{tag}
+            run_name=~{run_name}
+            sample_id=~{library_name}
+            lane=~{lane}
+            mode=~{mode}
+            subsample=~{subsample}
+            random_downsample=~{random_downsample}
+            meta_file=${meta_file_path}
+            data_path=${input_path}
+            run_directory=~{run_directory}
+            work_dir="./"
             EOF
+            cat ./input_config.txt
 
-            ./run_biomodalqc.sh ./input_config.txt
+            ./run_biomodal_qc.sh ./input_config.txt
         >>>
+
     runtime {
 		modules: "~{modules}"
 		memory:  "~{jobMemory} GB"
@@ -154,7 +159,7 @@ workflow biomodalQC {
 
 	output {
 		File dqsreport = "~{output_path}/dqsreport/~{library_name}.dqsummary.html"
-		File pipelineSummary = "~{output_path}pipeline_report/~{run_name}_~{mode}_Summary.csv"
+		File pipelineSummary = "~{output_path}/pipeline_report/~{run_name}_~{mode}_Summary.csv"
 	}
 
 	meta {
@@ -163,5 +168,4 @@ workflow biomodalQC {
 			pipelineSummary: "csv file of biomodal pipeline summary"
 		}
 	}
-    }
 }
