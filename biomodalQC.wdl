@@ -30,7 +30,7 @@ workflow biomodalQC {
         work_dir: "Path to biomodal working directory"
     }
 
-    String output_path = "init_folder/dataset/" + run_directory + "/nf-result/" + "duet-1.1.2_" + tag + "_" + mode
+    String output_path = work_dir + "/" + run_directory + "/nf-result/" + "duet-1.1.2_" + tag + "_" + mode
 
     call runBiomodalQC {
         input:
@@ -121,12 +121,13 @@ workflow biomodalQC {
             mkdir init_folder
             cp -r $INIT_FOLDER/* ./init_folder/
             cd init_folder
-            mkdir -p dataset/~{run_directory}/gsi-input
+            cp /.mounts/labs/gsiprojects/gsi/gsiusers/gpeng/biomodal/biomodal_qc/nextflow.config .
+            mkdir -p ~{work_dir}/~{run_directory}/gsi-input
             
-            meta_file_path="dataset/~{run_directory}/meta_file.csv"
-            input_path="dataset/~{run_directory}/gsi-input/"
+            meta_file_path="~{work_dir}/~{run_directory}/meta_file.csv"
+            input_path="~{work_dir}/~{run_directory}/gsi-input/"
             ln -s ~{fastqR1} ${input_path}
-            ln -s ~{fastqR2} ${input_path}   
+            ln -s ~{fastqR2} ${input_path}
             
             cat << EOF > ${meta_file_path}
                 sample_id, ~{library_name}
@@ -144,7 +145,7 @@ workflow biomodalQC {
             meta_file=${meta_file_path}
             data_path=${input_path}
             run_directory=~{run_directory}
-            work_dir="./dataset"
+            work_dir=~{work_dir}
             EOF
             cat ./input_config.txt
 
