@@ -12,7 +12,6 @@ workflow biomodalQC {
         String group_desc
         File fastqR1
         File fastqR2
-        String run_directory
     }
     parameter_meta {
         tag: "Tag for the biomodal pipeline run"
@@ -25,10 +24,7 @@ workflow biomodalQC {
         group_desc: "A text description of what the group ID means"
         fastqR1: "Fastq file for read 1"
         fastqR2: "Fastq file for read 2"
-        run_directory: "subdirectory under data_path with run name "
     }
-
-    String output_path = "init_folder/dataset/" + run_directory + "/nf-result/" + "duet-1.1.2_" + tag + "_" + mode
 
     call runBiomodalQC {
         input:
@@ -41,9 +37,7 @@ workflow biomodalQC {
         random_downsample = random_downsample,
         group_desc = group_desc,
         fastqR1 = fastqR1,
-        fastqR2 = fastqR2,
-        run_directory = run_directory,
-        output_path = output_path
+        fastqR2 = fastqR2
     }
 
     meta {
@@ -85,8 +79,6 @@ workflow biomodalQC {
             String group_desc
             File fastqR1
             File fastqR2
-            String run_directory
-            String output_path
             String modules = "biomodalqc/1.0.0"
             Int jobMemory = 16
             Int threads = 2
@@ -103,8 +95,6 @@ workflow biomodalQC {
             group_desc: "A text description of what the group ID means"
             fastqR1: "Fastq file for read 1"
             fastqR2: "Fastq file for read 2"
-            run_directory: "subdirectory under data_path with run name "
-            output_path: "Path to biomodalQC outputs"
             modules: "Required environment modules"
             jobMemory: "Memory allocated for this job (GB)"
             threads: "Requested CPU threads"
@@ -118,11 +108,11 @@ workflow biomodalQC {
             cp -r $INIT_FOLDER/* ./init_folder/
             cd init_folder
 
-            mkdir -p dataset/~{run_directory}/gsi-input
-            mkdir -p dataset/~{run_directory}/nf-input
-            meta_file_path="dataset/~{run_directory}/meta_file.csv"
-            input_path="dataset/~{run_directory}/gsi-input/"
-            nf_input_path="dataset/~{run_directory}/nf-input/"
+            mkdir -p dataset/~{run_name}/gsi-input
+            mkdir -p dataset/~{run_name}/nf-input
+            meta_file_path="dataset/~{run_name}/meta_file.csv"
+            input_path="dataset/~{run_name}/gsi-input/"
+            nf_input_path="dataset/~{run_name}/nf-input/"
 
             ln -s ~{fastqR1} ${input_path}
             ln -s ~{fastqR2} ${input_path}
@@ -146,11 +136,14 @@ workflow biomodalQC {
             random_downsample=~{random_downsample}
             meta_file=${meta_file_path}
             data_path=${input_path}
-            run_directory=~{run_directory}
+            run_directory=~{run_name}
             work_dir="dataset"
             EOF
             
             ./run_biomodal_qc.sh ./input_config.txt
+            cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/dqsreport/~{library_name}_dqsummary.html ./
+            cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/pipeline_report/~{run_name}_~{mode}_Summary.csv ./
+            mv ~{run_name}_~{mode}_Summary.csv ~{library_name}_~{mode}_Summary.csv
         >>>
 
     runtime {
@@ -161,8 +154,8 @@ workflow biomodalQC {
 	}
 
 	output {
-		File dqsreport = "~{output_path}/dqsreport/~{library_name}_dqsummary.html"
-		File pipelineSummary = "~{output_path}/pipeline_report/~{run_name}_~{mode}_Summary.csv"
+		File dqsreport = "init_folder/~{library_name}_dqsummary.html"
+		File pipelineSummary = "init_folder/~{library_name}_~{mode}_Summary.csv"
 	}
 
 	meta {
