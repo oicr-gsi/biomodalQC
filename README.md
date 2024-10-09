@@ -32,7 +32,6 @@ Parameter|Value|Description
 `fastqR1`|File|Fastq file for read 1
 `fastqR2`|File|Fastq file for read 2
 `run_directory`|String|subdirectory under data_path with run name 
-`work_dir`|String|Path to biomodal working directory
 
 
 #### Optional workflow parameters:
@@ -58,44 +57,44 @@ Output | Type | Description
 
 
 ## Commands
- This section lists command(s) run by biomodalQC workflow
- 
- * Running biomodalQC
- 
-```
-             set -euo pipefail
-             mkdir init_folder
-             cp -r $INIT_FOLDER/* ./init_folder/
-             cd init_folder
-             mkdir -p dataset/~{run_directory}/gsi-input
-             
-             meta_file_path="dataset/~{run_directory}/meta_file.csv"
-             input_path="dataset/~{run_directory}/gsi-input/"
-             ln -s ~{fastqR1} ${input_path}
-             ln -s ~{fastqR2} ${input_path}   
-             
-             cat << EOF > ${meta_file_path}
-                 sample_id, ~{library_name}
-                 description, ~{group_desc}
-             EOF
- 
-             cat << EOF > input_config.txt
-             tag=~{tag}
-             run_name=~{run_name}
-             sample_id=~{library_name}
-             lane=~{lane}
-             mode=~{mode}
-             subsample=~{subsample}
-             random_downsample=~{random_downsample}
-             meta_file=${meta_file_path}
-             data_path=${input_path}
-             run_directory=~{run_directory}
-             work_dir="./dataset"
-             EOF
-             cat ./input_config.txt
- 
-             ./run_biomodal_qc.sh ./input_config.txt
-```
+  This section lists command(s) run by biomodalQC workflow
+  
+  * Running biomodalQC
+  
+ ```
+  set -euo pipefail
+               mkdir init_folder
+               cp -r $INIT_FOLDER/* ./init_folder/
+               cd init_folder
+               mkdir -p dataset/~{run_directory}/gsi-input
+               
+               meta_file_path="dataset/~{run_directory}/meta_file.csv"
+               input_path="dataset/~{run_directory}/gsi-input/"
+               ln -s ~{fastqR1} ${input_path}
+               ln -s ~{fastqR2} ${input_path}   
+               
+               cat << EOF > ${meta_file_path}
+                   sample_id, ~{library_name}
+                   description, ~{group_desc}
+               EOF
+   
+               cat << EOF > input_config.txt
+               tag=~{tag}
+               run_name=~{run_name}
+               sample_id=~{library_name}
+               lane=~{lane}
+               mode=~{mode}
+               subsample=~{subsample}
+               random_downsample=~{random_downsample}
+               meta_file=${meta_file_path}
+               data_path=${input_path}
+               run_directory=~{run_directory}
+               work_dir="./dataset"
+               EOF
+               cat ./input_config.txt
+   
+               ./run_biomodal_qc.sh ./input_config.txt
+ ```
  ## Support
 
 For support, please file an issue on the [Github project](https://github.com/oicr-gsi) or send an email to gsi@oicr.on.ca .

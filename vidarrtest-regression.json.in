@@ -5,7 +5,6 @@
             "biomodalQC.runBiomodalQC.timeout": 48,
             "biomodalQC.run_name": "240426_M00753_0704_000000000-DNNHV",
             "biomodalQC.runBiomodalQC.threads": 2,
-            "biomodalQC.work_dir": "/scratch2/groups/gsi/bis/biomodal/wdl1.0.0",
             "biomodalQC.tag": "KLCS",
             "biomodalQC.mode": "6bp",
             "biomodalQC.runBiomodalQC.jobMemory": 16,

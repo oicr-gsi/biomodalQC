@@ -13,7 +13,6 @@ workflow biomodalQC {
         File fastqR1
         File fastqR2
         String run_directory
-        String work_dir
     }
     parameter_meta {
         tag: "Tag for the biomodal pipeline run"
@@ -27,10 +26,9 @@ workflow biomodalQC {
         fastqR1: "Fastq file for read 1"
         fastqR2: "Fastq file for read 2"
         run_directory: "subdirectory under data_path with run name "
-        work_dir: "Path to biomodal working directory"
     }
 
-    String output_path = work_dir + "/" + run_directory + "/nf-result/" + "duet-1.1.2_" + tag + "_" + mode
+    String output_path = "dataset/" + run_directory + "/nf-result/" + "duet-1.1.2_" + tag + "_" + mode
 
     call runBiomodalQC {
         input:
@@ -45,7 +43,6 @@ workflow biomodalQC {
         fastqR1 = fastqR1,
         fastqR2 = fastqR2,
         run_directory = run_directory,
-        work_dir = work_dir,
         output_path = output_path
     }
 
@@ -89,7 +86,6 @@ workflow biomodalQC {
             File fastqR1
             File fastqR2
             String run_directory
-            String work_dir = "/scratch2/groups/gsi/bis/biomodal/"
             String output_path
             String modules = "biomodalqc/1.0.0"
             Int jobMemory = 16
@@ -108,7 +104,6 @@ workflow biomodalQC {
             fastqR1: "Fastq file for read 1"
             fastqR2: "Fastq file for read 2"
             run_directory: "subdirectory under data_path with run name "
-            work_dir: "Path to biomodal working directory"
             output_path: "Path to biomodalQC outputs"
             modules: "Required environment modules"
             jobMemory: "Memory allocated for this job (GB)"
@@ -118,16 +113,23 @@ workflow biomodalQC {
         
         command <<<
             set -euo pipefail
-            mkdir -p ~{work_dir}/~{run_directory}/gsi-input
+            
             mkdir init_folder
             cp -r $INIT_FOLDER/* ./init_folder/
             cd init_folder
 
-            meta_file_path="~{work_dir}/~{run_directory}/meta_file.csv"
-            input_path="~{work_dir}/~{run_directory}/gsi-input/"
+            mkdir -p dataset/~{run_directory}/gsi-input
+            mkdir -p dataset/~{run_directory}/nf-input
+            meta_file_path="dataset/~{run_directory}/meta_file.csv"
+            input_path="dataset/~{run_directory}/gsi-input/"
+            nf_input_path="dataset/~{run_directory}/nf-input/"
 
             ln -s ~{fastqR1} ${input_path}
-            ln -s ~{fastqR2} ${input_path}   
+            ln -s ~{fastqR2} ${input_path}
+            read1_link="${nf_input_path}~{library_name}_S1_~{lane}_R1_001.fastq.gz"
+            read2_link="${nf_input_path}~{library_name}_S1_~{lane}_R2_001.fastq.gz"
+            ln -s ~{fastqR1} ${read1_link}
+            ln -s ~{fastqR2} ${read2_link}
             
             cat << EOF > ${meta_file_path}
                 sample_id, ~{library_name}
@@ -145,7 +147,7 @@ workflow biomodalQC {
             meta_file=${meta_file_path}
             data_path=${input_path}
             run_directory=~{run_directory}
-            work_dir=~{work_dir}
+            work_dir="dataset"
             EOF
             
             ./run_biomodal_qc.sh ./input_config.txt
