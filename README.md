@@ -100,9 +100,9 @@ Output | Type | Description
              EOF
              
              ./run_biomodal_qc.sh ./input_config.txt
-             cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/dqsreport/~{library_name}_dqsummary.html ./
-             cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/pipeline_report/~{run_name}_~{mode}_Summary.csv ./
-             mv ~{run_name}_~{mode}_Summary.csv ~{library_name}_~{mode}_Summary.csv
+            cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/dqsreport/~{library_name}_dqsummary.html ../
+            cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/pipeline_report/~{run_name}_~{mode}_Summary.csv ../
+            mv ../~{run_name}_~{mode}_Summary.csv ../~{library_name}_~{mode}_Summary.csv
  ```
  ## Support
 
