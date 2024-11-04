@@ -105,7 +105,7 @@ workflow biomodalQC {
             set -euo pipefail
             
             mkdir init_folder
-            cp -r $INIT_FOLDER/* ./init_folder/
+            cp --no-preserve=mode,ownership -r $INIT_FOLDER/* ./init_folder/
             cd init_folder
 
             mkdir -p dataset/~{run_name}/gsi-input
