@@ -106,6 +106,7 @@ workflow biomodalQC {
             
             mkdir init_folder
             cp --no-preserve=mode,ownership -r $INIT_FOLDER/* ./init_folder/
+            chmod -R 770 ./init_folder
             cd init_folder
 
             mkdir -p dataset/~{run_name}/gsi-input
