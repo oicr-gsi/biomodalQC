@@ -106,7 +106,6 @@ workflow biomodalQC {
             
             mkdir init_folder
             cp --no-preserve=mode,ownership -r $INIT_FOLDER/* ./init_folder/
-            chmod -R 770 ./init_folder
             cd init_folder
 
             mkdir -p dataset/~{run_name}/gsi-input
@@ -145,6 +144,7 @@ workflow biomodalQC {
             cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/dqsreport/~{library_name}_dqsummary.html ../
             cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/pipeline_report/~{run_name}_~{mode}_Summary.csv ../
             mv ../~{run_name}_~{mode}_Summary.csv ../~{library_name}_~{mode}_Summary.csv
+            chmod -R 770 ./
         >>>
 
     runtime {
