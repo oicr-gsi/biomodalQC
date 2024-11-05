@@ -113,6 +113,7 @@ workflow biomodalQC {
             meta_file_path="dataset/~{run_name}/meta_file.csv"
             input_path="dataset/~{run_name}/gsi-input/"
             nf_input_path="dataset/~{run_name}/nf-input/"
+            chmod -R 770 ./
 
             ln -s ~{fastqR1} ${input_path}
             ln -s ~{fastqR2} ${input_path}
