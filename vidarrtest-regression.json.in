@@ -13,7 +13,7 @@
             "biomodalQC.subsample": "2000000",
             "biomodalQC.lane": "L001",
             "biomodalQC.group_desc": "Miseq_150274_Pool",
-            "biomodalQC.library_name": "KLCS-150274-Pl-P-PE-586-NN",
+            "biomodalQC.library_name": "KLCS_150274_Pl_P_PE_586_NN",
             "biomodalQC.fastqR1": {
                 "contents": {
                     "configuration": "/.mounts/labs/prod/vidarr/output-research/c6d9/925d/e905/c6d9925de9053348698a1cefc3086511978e02267ff4e8303d5c9992621767a9/KLCS_150274_Pl_P_PE_586_NN_240426_M00753_0704_000000000-DNNHV_1_ACTCTCGA-TGGTACAG_R1.fastq.gz",

@@ -30,7 +30,7 @@ workflow biomodalQC {
         input:
         tag = tag,
         run_name = run_name,
-        library_name = library_name,
+        sample_id = sub(library_name, "_", "-"),
         lane = lane,
         mode = mode,
         subsample = subsample,
@@ -71,7 +71,7 @@ workflow biomodalQC {
         input {
             String tag
             String run_name
-            String library_name
+            String sample_id
             String lane
             String mode = "6bp"
             String subsample = 2000000
@@ -87,7 +87,7 @@ workflow biomodalQC {
         parameter_meta {
             tag: "Tag for the biomodal pipeline run"
             run_name: "Sequencer run name"
-            library_name: "Sample library name"
+            sample_id: "Sample library name"
             lane: "Sequencer lane number"
             mode: "Biomodal pipeline running mode"
             subsample: "The target number of reads to subsample for the input fastq file"
@@ -116,20 +116,21 @@ workflow biomodalQC {
 
             ln -s ~{fastqR1} ${input_path}
             ln -s ~{fastqR2} ${input_path}
-            read1_link="${nf_input_path}~{library_name}_S1_~{lane}_R1_001.fastq.gz"
-            read2_link="${nf_input_path}~{library_name}_S1_~{lane}_R2_001.fastq.gz"
+            read1_link="${nf_input_path}~{sample_id}_S1_~{lane}_R1_001.fastq.gz"
+            read2_link="${nf_input_path}~{sample_id}_S1_~{lane}_R2_001.fastq.gz"
             ln -s ~{fastqR1} ${read1_link}
             ln -s ~{fastqR2} ${read2_link}
             
             cat << EOF > ${meta_file_path}
-                sample_id, ~{library_name}
+                sample_id, ~{sample_id}
                 description, ~{group_desc}
             EOF
 
+            
             cat << EOF > ./input_config.txt
             tag=~{tag}
             run_name=~{run_name}
-            sample_id=~{library_name}
+            sample_id=~{sample_id}
             lane=~{lane}
             mode=~{mode}
             subsample=~{subsample}
@@ -141,9 +142,9 @@ workflow biomodalQC {
             EOF
             
             ./run_biomodal_qc.sh ./input_config.txt
-            cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/dqsreport/~{library_name}_dqsummary.html ../
+            cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/dqsreport/~{sample_id}_dqsummary.html ../
             cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/pipeline_report/~{run_name}_~{mode}_Summary.csv ../
-            mv ../~{run_name}_~{mode}_Summary.csv ../~{library_name}_~{mode}_Summary.csv
+            mv ../~{run_name}_~{mode}_Summary.csv ../~{sample_id}_~{mode}_Summary.csv
             chmod -R 770 ./
         >>>
 
@@ -155,8 +156,8 @@ workflow biomodalQC {
 	}
 
 	output {
-		File dqsreport = "~{library_name}_dqsummary.html"
-		File pipelineSummary = "~{library_name}_~{mode}_Summary.csv"
+		File dqsreport = "~{sample_id}_dqsummary.html"
+		File pipelineSummary = "~{sample_id}_~{mode}_Summary.csv"
 	}
 
 	meta {
