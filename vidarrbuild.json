@@ -1,6 +1,7 @@
 {
     "names": [
-        "biomodalQC"
+        "biomodalQC",
+	"biomodalQC_miseq"
     ],
     "wdl": "biomodalQC.wdl"
 }
