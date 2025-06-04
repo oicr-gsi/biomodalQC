@@ -29,8 +29,8 @@ Parameter|Value|Description
 `subsample`|String|The target number of reads to subsample for the input fastq file
 `random_downsample`|Boolean|Specify whether use seqtk to choose random reads, if set to false then choose the top reads in fastq
 `group_desc`|String|A text description of what the group ID means
-`fastqR1`|File|Fastq file for read 1
-`fastqR2`|File|Fastq file for read 2
+`fastqR1`|Array[File]|Fastq file for read 1
+`fastqR2`|Array[File]|Fastq file for read 2
 
 
 #### Optional workflow parameters:
@@ -49,17 +49,21 @@ Parameter|Value|Default|Description
 
 ### Outputs
 
-Output | Type | Description
----|---|---
-`dqsreport`|File|{'description': 'Html file of QC metric tables and plots', 'vidarr_label': 'dqsreport'}
-`pipelineSummary`|File|{'description': 'csv file of biomodal pipeline summary', 'vidarr_label': 'pipelineSummary'}
-
+Output | Type | Description | Labels
+---|---|---|---
+`dqsreport`|File|Html file of QC metric tables and plots|vidarr_label: dqsreport
+`pipelineSummary`|File|csv file of biomodal pipeline summary|vidarr_label: pipelineSummary
 
 ## Commands
 This section lists command(s) run by biomodalQC workflow
 
 * Running biomodalQC
 
+
+```
+    cat ~{sep=' ' fastqR1} > ~{basename_R1}
+    cat ~{sep=' ' fastqR2} > ~{basename_R2}
+```
 ```
             set -euo pipefail
             
@@ -106,7 +110,9 @@ This section lists command(s) run by biomodalQC workflow
             mv ../~{run_name}_~{mode}_Summary.csv ../~{sample_id}_~{mode}_Summary.csv
             chmod -R 770 ./
 ```
- ## Support
+
+
+## Support
 
 For support, please file an issue on the [Github project](https://github.com/oicr-gsi) or send an email to gsi@oicr.on.ca .
 
