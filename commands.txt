@@ -3,6 +3,11 @@ This section lists command(s) run by biomodalQC workflow
 
 * Running biomodalQC
 
+
+```
+    cat ~{sep=' ' fastqR1} > ~{basename_R1}
+    cat ~{sep=' ' fastqR2} > ~{basename_R2}
+```
 ```
             set -euo pipefail
             

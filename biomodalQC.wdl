@@ -1,5 +1,6 @@
 version 1.0
 
+
 workflow biomodalQC {
     input {
         String tag
@@ -10,8 +11,8 @@ workflow biomodalQC {
         String subsample
         Boolean random_downsample
         String group_desc
-        File fastqR1
-        File fastqR2
+        Array[File] fastqR1
+        Array[File] fastqR2
     }
     parameter_meta {
         tag: "Tag for the biomodal pipeline run"
@@ -26,6 +27,17 @@ workflow biomodalQC {
         fastqR2: "Fastq file for read 2"
     }
 
+    if (length(fastqR1) > 1) {
+        call merge_fastqs {
+        input:
+            fastqR1 = fastqR1,
+            fastqR2 = fastqR2,
+            out_prefix = library_name
+        }
+    }
+    File r1_final = select_first([merge_fastqs.merged_R1, fastqR1[0]])
+    File r2_final = select_first([merge_fastqs.merged_R2, fastqR2[0]])
+
     call runBiomodalQC {
         input:
         tag = tag,
@@ -36,8 +48,8 @@ workflow biomodalQC {
         subsample = subsample,
         random_downsample = random_downsample,
         group_desc = group_desc,
-        fastqR1 = fastqR1,
-        fastqR2 = fastqR2
+        fastqR1 = r1_final,
+        fastqR2 = r2_final
     }
 
     meta {
@@ -67,7 +79,34 @@ workflow biomodalQC {
         File pipelineSummary = runBiomodalQC.pipelineSummary
     }
 }
-    task runBiomodalQC{
+
+task merge_fastqs {
+  input {
+    Array[File] fastqR1
+    Array[File] fastqR2
+    String out_prefix
+  }
+    String basename_R1 = basename(fastqR1[0])
+    String basename_R2 = basename(fastqR2[0])
+
+  command <<<
+    cat ~{sep=' ' fastqR1} > ~{basename_R1}
+    cat ~{sep=' ' fastqR2} > ~{basename_R2}
+  >>>
+
+  output {
+    File merged_R1 = "~{basename_R1}"
+    File merged_R2 = "~{basename_R2}"
+  }
+
+  runtime {
+    cpu: 1
+    jobMemory: 8
+    timout: 8
+  }
+}
+
+task runBiomodalQC{
         input {
             String tag
             String run_name

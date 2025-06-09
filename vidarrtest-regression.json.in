@@ -5,18 +5,21 @@
             "biomodalQC.runBiomodalQC.timeout": 48,
             "biomodalQC.run_name": "240426_M00753_0704_000000000-DNNHV",
             "biomodalQC.runBiomodalQC.threads": 2,
+            "biomodalQC.merge_fastqs.jobMemory": 8,
+            "biomodalQC.merge_fatsqs.timeout": 8,
             "biomodalQC.tag": "KLCS",
             "biomodalQC.mode": "6bp",
             "biomodalQC.runBiomodalQC.jobMemory": 16,
             "biomodalQC.run_directory": "240426_M00753_0704_000000000-DNNHV",
             "biomodalQC.random_downsample": true,
             "biomodalQC.subsample": "2000000",
-            "biomodalQC.lane": "L001",
+            "biomodalQC.lane": "0",
             "biomodalQC.group_desc": "Miseq_150274_Pool",
             "biomodalQC.library_name": "KLCS_150274_Pl_P_PE_586_NN",
-            "biomodalQC.fastqR1": {
+            "biomodalQC.fastqR1": [
+                {
                 "contents": {
-                    "configuration": "/.mounts/labs/prod/vidarr/output-research/c6d9/925d/e905/c6d9925de9053348698a1cefc3086511978e02267ff4e8303d5c9992621767a9/KLCS_150274_Pl_P_PE_586_NN_240426_M00753_0704_000000000-DNNHV_1_ACTCTCGA-TGGTACAG_R1.fastq.gz",
+                    "configuration": "/.mounts/labs/gsi/testdata/biomodalQC/1.0.4/inputs/KLCS_150274_Pl_P_PE_586_NN_240426_M00753_0704_000000000-DNNHV_1_ACTCTCGA-TGGTACAG_R1.fastq.gz",
                     "externalIds": [
                         {
                             "id": "TEST",
@@ -25,10 +28,10 @@
                     ]
                 },
                 "type": "EXTERNAL"
-            },
-            "biomodalQC.fastqR2": {
+                },
+                {
                 "contents": {
-                    "configuration": "/.mounts/labs/prod/vidarr/output-research/c6d9/925d/e905/c6d9925de9053348698a1cefc3086511978e02267ff4e8303d5c9992621767a9/KLCS_150274_Pl_P_PE_586_NN_240426_M00753_0704_000000000-DNNHV_1_ACTCTCGA-TGGTACAG_R2.fastq.gz",
+                    "configuration": "/.mounts/labs/gsi/testdata/biomodalQC/1.0.4/inputs/KLCS_150281_Pl_P_PE_551_NN_240426_M00753_0704_000000000-DNNHV_1_TGAGCTAG-TAACCGGT_R1.fastq.gz",
                     "externalIds": [
                         {
                             "id": "TEST",
@@ -37,7 +40,34 @@
                     ]
                 },
                 "type": "EXTERNAL"
-            }
+                }
+            ],
+            "biomodalQC.fastqR2": [
+                {
+                "contents": {
+                    "configuration": "/.mounts/labs/gsi/testdata/biomodalQC/1.0.4/inputs/KLCS_150274_Pl_P_PE_586_NN_240426_M00753_0704_000000000-DNNHV_1_ACTCTCGA-TGGTACAG_R2.fastq.gz",
+                    "externalIds": [
+                        {
+                            "id": "TEST",
+                            "provider": "TEST"
+                        }
+                    ]
+                },
+                "type": "EXTERNAL"
+                },
+                {
+                "contents": {
+                        "configuration": "/.mounts/labs/gsi/testdata/biomodalQC/1.0.4/inputs/KLCS_150281_Pl_P_PE_551_NN_240426_M00753_0704_000000000-DNNHV_1_TGAGCTAG-TAACCGGT_R2.fastq.gz",
+                        "externalIds": [
+                            {
+                                "id": "TEST",
+                                "provider": "TEST"
+                            }
+                        ]
+                    },
+                    "type": "EXTERNAL"
+                }
+            ]
         },
         "description": "Run_biomodalQC_with_miseq_data",
         "engineArguments": {
@@ -67,7 +97,7 @@
             {
                 "metrics_calculate": "@CHECKOUT@/tests/calculate.sh",
                 "metrics_compare": "@CHECKOUT@/tests/compare.sh",
-                "output_metrics": "/.mounts/labs/gsi/testdata/biomodalQC/1.0.0/output_metrics/Run_biomodalQC_with_miseq_data.metrics",
+                "output_metrics": "/.mounts/labs/gsi/testdata/biomodalQC/1.0.4/output_metrics/Run_biomodalQC_with_merged_miseq_data.metrics",
                 "type": "script"
             }
         ]
