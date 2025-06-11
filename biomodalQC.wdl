@@ -28,15 +28,15 @@ workflow biomodalQC {
     }
 
     if (length(fastqR1) > 1) {
-        call merge_fastqs {
+        call mergeFastqs {
         input:
             fastqR1 = fastqR1,
             fastqR2 = fastqR2,
             out_prefix = library_name
         }
     }
-    File r1_final = select_first([merge_fastqs.merged_R1, fastqR1[0]])
-    File r2_final = select_first([merge_fastqs.merged_R2, fastqR2[0]])
+    File r1_final = select_first([mergeFastqs.merged_R1, fastqR1[0]])
+    File r2_final = select_first([mergeFastqs.merged_R2, fastqR2[0]])
 
     call runBiomodalQC {
         input:
@@ -80,11 +80,19 @@ workflow biomodalQC {
     }
 }
 
-task merge_fastqs {
+task mergeFastqs {
   input {
     Array[File] fastqR1
     Array[File] fastqR2
     String out_prefix
+    Int jobMemory = 32
+    Int threads = 1
+    Int timeout = 8
+  }
+  parameter_meta {
+    jobMemory: "Memory allocated for this job (GB)"
+    threads: "Requested CPU threads"
+    timeout: "Hours before task timeout"
   }
     String basename_R1 = basename(fastqR1[0])
     String basename_R2 = basename(fastqR2[0])
@@ -100,9 +108,9 @@ task merge_fastqs {
   }
 
   runtime {
-    cpu: 1
-    jobMemory: 8
-    timout: 8
+    memory:  "~{jobMemory} GB"
+    cpu:     "~{threads}"
+    timeout: "~{timeout}"
   }
 }
 
