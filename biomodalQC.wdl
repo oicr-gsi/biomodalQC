@@ -32,11 +32,11 @@ workflow biomodalQC {
         input:
             fastqR1 = fastqR1,
             fastqR2 = fastqR2,
-            out_prefix = library_name
+            out_prefix = library_name + "_" + lane +"_" + run_name
         }
     }
-    File r1_final = select_first([mergeFastqs.merged_R1, fastqR1[0]])
-    File r2_final = select_first([mergeFastqs.merged_R2, fastqR2[0]])
+    File R1_merged = select_first([mergeFastqs.merged_R1, fastqR1[0]])
+    File R2_merged = select_first([mergeFastqs.merged_R2, fastqR2[0]])
 
     call runBiomodalQC {
         input:
@@ -48,8 +48,8 @@ workflow biomodalQC {
         subsample = subsample,
         random_downsample = random_downsample,
         group_desc = group_desc,
-        fastqR1 = r1_final,
-        fastqR2 = r2_final
+        fastqR1 = R1_merged,
+        fastqR2 = R2_merged
     }
 
     meta {
@@ -94,17 +94,17 @@ task mergeFastqs {
     threads: "Requested CPU threads"
     timeout: "Hours before task timeout"
   }
-    String basename_R1 = basename(fastqR1[0])
-    String basename_R2 = basename(fastqR2[0])
 
   command <<<
-    cat ~{sep=' ' fastqR1} > ~{basename_R1}
-    cat ~{sep=' ' fastqR2} > ~{basename_R2}
+    sorted_R1=($(for fastq in ~{sep=' ' fastqR1}; do echo "$fastq"; done | sort))
+    sorted_R2=($(for fastq in ~{sep=' ' fastqR2}; do echo "$fastq"; done | sort))
+    cat "${sorted_R1[@]}" > ~{out_prefix}_R1.fastq.gz
+    cat "${sorted_R2[@]}" > ~{out_prefix}_R2.fastq.gz
   >>>
 
   output {
-    File merged_R1 = "~{basename_R1}"
-    File merged_R2 = "~{basename_R2}"
+    File merged_R1 = "~{out_prefix}_R1.fastq.gz"
+    File merged_R2 = "~{out_prefix}_R2.fastq.gz"
   }
 
   runtime {
