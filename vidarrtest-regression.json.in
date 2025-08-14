@@ -98,7 +98,7 @@
             {
                 "metrics_calculate": "@CHECKOUT@/tests/calculate.sh",
                 "metrics_compare": "@CHECKOUT@/tests/compare.sh",
-                "output_metrics": "/.mounts/labs/gsi/testdata/biomodalQC/output_metrics/workflow_test_01.metrics",
+                "output_metrics": "/.mounts/labs/gsi/testdata/biomodalQC/1.0.4/output_metrics/workflow_test_01.metrics",
                 "type": "script"
             }
         ]
