@@ -80,7 +80,7 @@
             "write_to_cache": false,
             "read_from_cache": false
         },
-        "id": "KLCS-Test1",
+        "id": "test_01",
         "metadata": {
             "biomodalQC.dqsreport": {
                 "contents": [

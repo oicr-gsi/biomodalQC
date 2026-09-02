@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   counterpart in the target tree is an error rather than a silent substitution.
 
 ### Fixed
+- The regression case is named `test_01`. The harness reads the test outcome out of the
+  vidarr log keyed by this id and never matched the hyphenated one, so every run of this
+  workflow was reported as having no outcome, whatever it actually did.
 - Two processes copy their helper scripts from `$INIT_FOLDER`, which is the read-only
   module, so they took the shipped scripts rather than the repointed ones beside them.
   The variable is now pointed at the copy in the task directory before the run starts.
