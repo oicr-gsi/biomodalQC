@@ -111,6 +111,10 @@ This section lists command(s) run by biomodalQC workflow
                         echo "ERROR: scheduler slurm requires slurmPartition: the pipeline config names no queue that exists here" >&2
                         exit 1
                     fi
+                    if [ -z "~{processTime}" ]; then
+                        echo "ERROR: scheduler slurm requires processTime: the pipeline config asks for 10d, which a partition with a lower limit refuses at submit. The refusal is not fatal to the pipeline, whose error strategy ignores it, so the run would hang instead of failing" >&2
+                        exit 1
+                    fi
                     ;;
                 *)
                     echo "ERROR: scheduler must be sge or slurm, got '${SCHEDULER}'" >&2
@@ -177,6 +181,7 @@ This section lists command(s) run by biomodalQC workflow
             SCHED_MODULE="~{modules}" \
             SCHED_BINDS="~{sep=',' singularityBinds}" \
             SCHED_CONFIG="$(pwd)/conf/nextflow.config.sge.deep" \
+            SCHED_ERROR_CONFIG="$(pwd)/conf/error.config" \
             python3 <<'PYEOF'
             import os, pathlib, re
 
@@ -250,6 +255,27 @@ This section lists command(s) run by biomodalQC workflow
                 for name in sorted(set(requests) | sets_time):
                     per_selector.setdefault(name, []).append("time = '%s'" % proc_time)
                 notes.append("time set to %s" % proc_time)
+
+            if sched == "slurm":
+                # error.config is passed after this file, so its strategy wins and has to be
+                # amended in place. A job that never reached the scheduler has no exit status,
+                # which the pipeline's own list does not match, so it is ignored and everything
+                # downstream then waits on a channel that never fills. Only that case changes.
+                err_cfg = pathlib.Path(os.environ["SCHED_ERROR_CONFIG"])
+                err_cfg.write_text(err_cfg.read_text() + "\n".join([
+                    "",
+                    "// ---- SCHEDULER SETTINGS (generated per run) ----",
+                    "process {",
+                    "    errorStrategy = {",
+                    "        if (task.exitStatus == Integer.MAX_VALUE) return 'terminate'",
+                    "        sleep(Math.pow(2, task.attempt) as long)",
+                    "        return task.exitStatus in [0, 2, 10, 14] ? 'retry' : 'ignore'",
+                    "    }",
+                    "}",
+                    "",
+                ]))
+                print("Scheduler settings: a job that fails to reach the scheduler now "
+                      "terminates the run instead of being ignored")
 
             binds = [b for b in os.environ["SCHED_BINDS"].split(",") if b]
 

@@ -17,8 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exists and a run without them would ask for nothing at all. They are read at run time
   rather than copied here, so a module upgrade that changes one is picked up.
 - `processTime` replaces the wall-clock limits, on the generic scope and on each selector
-  that sets one. The config asks for `10d`, which a partition with a lower limit rejects
-  at submit.
+  that sets one, and a slurm run must supply it. The config asks for `10d`; both partitions
+  here cap lower, so sbatch refuses every job. That refusal is not fatal to the pipeline,
+  whose error strategy ignores a job with no exit status, so the run hung rather than
+  failing.
+- A slurm run also amends the error strategy so a job that never reached the scheduler
+  terminates the run. Only that case changes; a job that ran and failed is still handled
+  the way the pipeline asks.
 
 ### Fixed
 - `run_directory` dropped from the regression arguments. The workflow has no such input,

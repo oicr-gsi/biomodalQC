@@ -15,7 +15,7 @@
             "biomodalQC.slurmAccount": "gsi",
             "biomodalQC.singularityBinds": null,
             "biomodalQC.processBeforeScript": null,
-            "biomodalQC.processTime": null,
+            "biomodalQC.processTime": "24h",
             "biomodalQC.runBiomodalQC.jobMemory": 16,
             "biomodalQC.random_downsample": true,
             "biomodalQC.subsample": "2000000",
