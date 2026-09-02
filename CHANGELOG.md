@@ -31,6 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the workflow; where the two already agree nothing changes. A package with no
   counterpart in the target tree is an error rather than a silent substitution.
 
+### Fixed
+- Two processes copy their helper scripts from `$INIT_FOLDER`, which is the read-only
+  module, so they took the shipped scripts rather than the repointed ones beside them.
+  The variable is now pointed at the copy in the task directory before the run starts.
+- A slurm run overrides the java temp directory. The head job exports one under its own
+  node's `/tmp` and every job it submits inherits it, so a job landing on another node
+  could not create a temp file; it showed up as `fastqc` producing a truncated zip.
+
 ### Changed
 - The instance is copied rather than symlinked. An include is resolved by following the
   symlink before applying the `..` in it, so a symlinked `workflows/` reached back into

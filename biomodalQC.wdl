@@ -452,11 +452,23 @@ task runBiomodalQC{
                     lines.append("}")
                 if binds:
                     lines += ["singularity {", "    runOptions = '-B %s'" % ",".join(binds), "}"]
+                if sched == "slurm":
+                    # The head job exports a java tmpdir under its own node's /tmp and every
+                    # job it submits inherits it, so a job that lands on another node cannot
+                    # create a temp file. Point it at the task directory instead, which is on
+                    # the filesystem every node shares.
+                    lines += ["env {", "    _JAVA_OPTIONS = '-Djava.io.tmpdir=.'", "}"]
                 with cfg_path.open("a") as fh:
                     fh.write("\n".join(lines) + "\n")
                 for n in notes:
                     print("Scheduler settings: %s" % n)
             PYEOF
+
+            # Two processes copy their helper scripts from $INIT_FOLDER, which is the
+            # read-only module. Point it at the copy beside them so they take the repointed
+            # scripts and not the shipped ones. Done last: the repointing above reads the
+            # module's own path to learn which tree it was installed from.
+            export INIT_FOLDER="$(pwd)"
 
             ./run_biomodal_qc.sh ./input_config.txt
             cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/dqsreport/~{sample_id}_dqsummary.html ../
