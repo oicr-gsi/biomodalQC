@@ -237,6 +237,81 @@ task runBiomodalQC{
             cp -rL "$INIT_FOLDER/conf" ./conf
             chmod -R u+w ./conf
 
+            # ---------------------------------------------------------------------------
+            # The pipeline pins one modulator tree's paths into its process scripts. On any
+            # other tree the interpreter resolves but the libraries behind it do not, so
+            # repoint them at the tree this module was installed from. The tree name is read
+            # off the module's own path and the root off the scripts, so neither is written
+            # down here. A no-op where the two already agree.
+            # ---------------------------------------------------------------------------
+            PATCH_INIT_FOLDER="$INIT_FOLDER" python3 <<'PY2EOF'
+            import os, pathlib, re, shutil
+
+            init = os.environ["PATCH_INIT_FOLDER"].rstrip("/")
+            m = re.search(r"/modulator/sw/(?P<tag>[^/]+)/", init + "/")
+            if not m:
+                print("Note: %s is not under a modulator tree; process scripts left alone" % init)
+                raise SystemExit(0)
+
+            tag = m.group("tag")
+            src = pathlib.Path(init)
+            targets = ("modules", "scripts")
+            ref = re.compile(r"(?P<root>/[^\s\"';:=]*?/modulator/sw)/(?P<tag>[^/\s\"';:]+)/"
+                             r"(?P<rest>[^\s\"';:]*)")
+
+
+            def readable(base):
+                for name in targets:
+                    for f in sorted((base / name).rglob("*")):
+                        if f.is_file():
+                            try:
+                                yield f, f.read_text()
+                            except (UnicodeDecodeError, OSError):
+                                continue
+
+
+            # What the shipped scripts ask of a tree that is not this one.
+            wanted, other_tags = {}, set()
+            for _, text in readable(src):
+                for mm in ref.finditer(text):
+                    if mm.group("tag") != tag:
+                        wanted.setdefault((mm.group("root"), mm.group("rest").split("/")[0]),
+                                          set()).add(mm.group("tag"))
+                        other_tags.add(mm.group("tag"))
+
+            if not wanted:
+                print("Process scripts already point at %s" % tag)
+                raise SystemExit(0)
+
+            missing = sorted(pkg for (root, pkg) in wanted
+                             if not (pathlib.Path(root) / tag / pkg).is_dir())
+            if missing:
+                raise SystemExit(
+                    "ERROR: %s has no %s, so the process scripts cannot be repointed at it. "
+                    "Leaving them would run this tree's interpreter against another tree's "
+                    "libraries." % (tag, ", ".join(missing)))
+
+            for name in targets:
+                dst = pathlib.Path(name)
+                if dst.is_symlink():
+                    dst.unlink()
+                elif dst.is_dir():
+                    shutil.rmtree(dst)
+                shutil.copytree(src / name, dst, symlinks=False)
+                for p in [dst, *dst.rglob("*")]:
+                    mode = p.stat().st_mode
+                    p.chmod(mode | (0o700 if p.is_dir() else 0o600))
+
+            patched = 0
+            for f, text in readable(pathlib.Path(".")):
+                new = ref.sub(lambda mm: "%s/%s/%s" % (mm.group("root"), tag, mm.group("rest")), text)
+                if new != text:
+                    f.write_text(new)
+                    patched += 1
+            print("Repointed %d process script(s) from %s at %s"
+                  % (patched, ", ".join(sorted(other_tags)), tag))
+            PY2EOF
+
 
             mkdir -p dataset/~{run_name}/gsi-input
             mkdir -p dataset/~{run_name}/nf-input

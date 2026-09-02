@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A slurm run also amends the error strategy so a job that never reached the scheduler
   terminates the run. Only that case changes; a job that ran and failed is still handled
   the way the pipeline asks.
+- The pipeline pins one modulator tree's paths into six of its process scripts, so on a
+  cluster built from another tree its interpreter resolves but the libraries behind it do
+  not. The task now takes a writable copy of `modules/` and `scripts/` and repoints them
+  at the tree the loaded module came from. The tree name is read off the module's own
+  path and the root off the scripts, so neither is written into the workflow; where the
+  two already agree nothing is copied and nothing changes. A package with no counterpart
+  in the target tree is an error rather than a silent substitution.
 
 ### Fixed
 - `run_directory` dropped from the regression arguments. The workflow has no such input,
