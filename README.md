@@ -123,16 +123,14 @@ This section lists command(s) run by biomodalQC workflow
             esac
 
             
+            # A real copy, not a symlink farm. Nextflow resolves an include through a
+            # symlinked directory before applying the "..", so a symlinked workflows/ reaches
+            # back into the module tree and past anything changed here. Dotfiles are left
+            # behind: the module ships a .nextflow cache from its own build.
             mkdir init_folder
-            ln -s $INIT_FOLDER/* ./init_folder
+            cp -rL "$INIT_FOLDER"/* ./init_folder/
+            chmod -R u+w ./init_folder
             cd init_folder
-
-            # The run script hands conf/nextflow.config.sge.deep to nextflow with -c. The
-            # module tree is read-only, so take a writable copy to append the scheduler
-            # settings to; the script resolves conf/ next to itself and picks this one up.
-            rm -f ./conf
-            cp -rL "$INIT_FOLDER/conf" ./conf
-            chmod -R u+w ./conf
 
             # ---------------------------------------------------------------------------
             # The pipeline pins one modulator tree's paths into its process scripts. On any
@@ -142,7 +140,7 @@ This section lists command(s) run by biomodalQC workflow
             # down here. A no-op where the two already agree.
             # ---------------------------------------------------------------------------
             PATCH_INIT_FOLDER="$INIT_FOLDER" python3 <<'PY2EOF'
-            import os, pathlib, re, shutil
+            import os, pathlib, re
 
             init = os.environ["PATCH_INIT_FOLDER"].rstrip("/")
             m = re.search(r"/modulator/sw/(?P<tag>[^/]+)/", init + "/")
@@ -151,15 +149,13 @@ This section lists command(s) run by biomodalQC workflow
                 raise SystemExit(0)
 
             tag = m.group("tag")
-            src = pathlib.Path(init)
-            targets = ("modules", "scripts")
             ref = re.compile(r"(?P<root>/[^\s\"';:=]*?/modulator/sw)/(?P<tag>[^/\s\"';:]+)/"
                              r"(?P<rest>[^\s\"';:]*)")
 
 
-            def readable(base):
-                for name in targets:
-                    for f in sorted((base / name).rglob("*")):
+            def readable():
+                for name in ("modules", "scripts"):
+                    for f in sorted(pathlib.Path(name).rglob("*")):
                         if f.is_file():
                             try:
                                 yield f, f.read_text()
@@ -167,9 +163,9 @@ This section lists command(s) run by biomodalQC workflow
                                 continue
 
 
-            # What the shipped scripts ask of a tree that is not this one.
+            # What the scripts ask of a tree that is not this one.
             wanted, other_tags = {}, set()
-            for _, text in readable(src):
+            for _, text in readable():
                 for mm in ref.finditer(text):
                     if mm.group("tag") != tag:
                         wanted.setdefault((mm.group("root"), mm.group("rest").split("/")[0]),
@@ -188,19 +184,8 @@ This section lists command(s) run by biomodalQC workflow
                     "Leaving them would run this tree's interpreter against another tree's "
                     "libraries." % (tag, ", ".join(missing)))
 
-            for name in targets:
-                dst = pathlib.Path(name)
-                if dst.is_symlink():
-                    dst.unlink()
-                elif dst.is_dir():
-                    shutil.rmtree(dst)
-                shutil.copytree(src / name, dst, symlinks=False)
-                for p in [dst, *dst.rglob("*")]:
-                    mode = p.stat().st_mode
-                    p.chmod(mode | (0o700 if p.is_dir() else 0o600))
-
             patched = 0
-            for f, text in readable(pathlib.Path(".")):
+            for f, text in readable():
                 new = ref.sub(lambda mm: "%s/%s/%s" % (mm.group("root"), tag, mm.group("rest")), text)
                 if new != text:
                     f.write_text(new)
