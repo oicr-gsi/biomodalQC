@@ -10,8 +10,13 @@
             "biomodalQC.mergeFastqs.threads": null,
             "biomodalQC.tag": "KLCS",
             "biomodalQC.mode": "6bp",
+            "biomodalQC.scheduler": null,
+            "biomodalQC.slurmPartition": "prod",
+            "biomodalQC.slurmAccount": "gsi",
+            "biomodalQC.singularityBinds": null,
+            "biomodalQC.processBeforeScript": null,
+            "biomodalQC.processTime": "24h",
             "biomodalQC.runBiomodalQC.jobMemory": 16,
-            "biomodalQC.run_directory": "DNNHV_Test",
             "biomodalQC.random_downsample": true,
             "biomodalQC.subsample": "2000000",
             "biomodalQC.lane": "0",
@@ -75,7 +80,7 @@
             "write_to_cache": false,
             "read_from_cache": false
         },
-        "id": "KLCS-Test1",
+        "id": "test_01",
         "metadata": {
             "biomodalQC.dqsreport": {
                 "contents": [

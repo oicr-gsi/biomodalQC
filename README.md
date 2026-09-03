@@ -1,8 +1,8 @@
 # biomodalQC
 
-Workflow for biomodalQC, QC workflow for biomodal pipeline
-
 ## Overview
+
+Workflow for biomodalQC, QC workflow for biomodal pipeline
 
 ## Dependencies
 
@@ -36,6 +36,12 @@ Parameter|Value|Description
 #### Optional workflow parameters:
 Parameter|Value|Default|Description
 ---|---|---|---
+`scheduler`|String|""|Which scheduler Nextflow submits its own jobs to, sge or slurm. Leave empty and the task decides from the submit command the cluster provides, so one set of inputs is portable between sites
+`slurmPartition`|String|""|Partition Nextflow submits its own jobs to, required when scheduler resolves to slurm. The pipeline config names no queue that exists outside the site it was written for
+`slurmAccount`|String|""|Accounting group for the jobs Nextflow submits, when the site requires one
+`singularityBinds`|Array[String]|[]|Paths bound into every container, for a site whose filesystems the pipeline config does not already reach
+`processBeforeScript`|String|""|Script run before every Nextflow process. Empty keeps the pipeline's own
+`processTime`|String|""|Wall-clock limit for every Nextflow process, as a Nextflow duration such as 24h, replacing the limits the pipeline config sets. Empty keeps those, which is only safe where they fit the partition or queue the jobs go to
 
 
 #### Optional task parameters:
@@ -57,11 +63,11 @@ Output | Type | Description | Labels
 `dqsreport`|File|Html file of QC metric tables and plots|vidarr_label: dqsreport
 `pipelineSummary`|File|csv file of biomodal pipeline summary|vidarr_label: pipelineSummary
 
+
 ## Commands
 This section lists command(s) run by biomodalQC workflow
 
 * Running biomodalQC
-
 
 ```
     sorted_R1=($(for fastq in ~{sep=' ' fastqR1}; do echo "$fastq"; done | sort))
@@ -71,10 +77,123 @@ This section lists command(s) run by biomodalQC workflow
 ```
 ```
             set -euo pipefail
+
+            # ---------------------------------------------------------------------------
+            # Which scheduler Nextflow submits its own jobs to. Resolved from the submit
+            # command the cluster provides so one set of inputs is portable between sites;
+            # the scheduler input overrides that. Decided before any work is done, so a
+            # setting that cannot be satisfied fails at once rather than after the run.
+            # ---------------------------------------------------------------------------
+            SCHEDULER="~{scheduler}"
+            if [ -z "${SCHEDULER}" ]; then
+                if   command -v sbatch >/dev/null 2>&1; then SCHEDULER=slurm
+                elif command -v qsub   >/dev/null 2>&1; then SCHEDULER=sge
+                else
+                    echo "ERROR: cannot tell which scheduler Nextflow should submit to: neither sbatch nor qsub is on PATH. Set the scheduler input" >&2
+                    exit 1
+                fi
+                echo "Detected scheduler: ${SCHEDULER}"
+            fi
+
+            SLURM_ONLY=()
+            [ -z "~{slurmPartition}" ]      || SLURM_ONLY+=("slurmPartition")
+            [ -z "~{slurmAccount}" ]        || SLURM_ONLY+=("slurmAccount")
+            [ -z "~{processBeforeScript}" ] || SLURM_ONLY+=("processBeforeScript")
+
+            case "${SCHEDULER}" in
+                sge)
+                    if [ "${#SLURM_ONLY[@]}" -gt 0 ]; then
+                        echo "Note: $(IFS=,; echo "${SLURM_ONLY[*]}") ignored; those apply only to slurm"
+                    fi
+                    ;;
+                slurm)
+                    if [ -z "~{slurmPartition}" ]; then
+                        echo "ERROR: scheduler slurm requires slurmPartition: the pipeline config names no queue that exists here" >&2
+                        exit 1
+                    fi
+                    if [ -z "~{processTime}" ]; then
+                        echo "ERROR: scheduler slurm requires processTime: the pipeline config asks for 10d, which a partition with a lower limit refuses at submit. The refusal is not fatal to the pipeline, whose error strategy ignores it, so the run would hang instead of failing" >&2
+                        exit 1
+                    fi
+                    ;;
+                *)
+                    echo "ERROR: scheduler must be sge or slurm, got '${SCHEDULER}'" >&2
+                    exit 1
+                    ;;
+            esac
+
             
+            # A real copy, not a symlink farm. Nextflow resolves an include through a
+            # symlinked directory before applying the "..", so a symlinked workflows/ reaches
+            # back into the module tree and past anything changed here. Dotfiles are left
+            # behind: the module ships a .nextflow cache from its own build.
             mkdir init_folder
-            ln -s $INIT_FOLDER/* ./init_folder
+            cp -rL "$INIT_FOLDER"/* ./init_folder/
+            chmod -R u+w ./init_folder
             cd init_folder
+
+            # ---------------------------------------------------------------------------
+            # The pipeline pins one modulator tree's paths into its process scripts. On any
+            # other tree the interpreter resolves but the libraries behind it do not, so
+            # repoint them at the tree this module was installed from. The tree name is read
+            # off the module's own path and the root off the scripts, so neither is written
+            # down here. A no-op where the two already agree.
+            # ---------------------------------------------------------------------------
+            PATCH_INIT_FOLDER="$INIT_FOLDER" python3 <<'PY2EOF'
+            import os, pathlib, re
+
+            init = os.environ["PATCH_INIT_FOLDER"].rstrip("/")
+            m = re.search(r"/modulator/sw/(?P<tag>[^/]+)/", init + "/")
+            if not m:
+                print("Note: %s is not under a modulator tree; process scripts left alone" % init)
+                raise SystemExit(0)
+
+            tag = m.group("tag")
+            ref = re.compile(r"(?P<root>/[^\s\"';:=]*?/modulator/sw)/(?P<tag>[^/\s\"';:]+)/"
+                             r"(?P<rest>[^\s\"';:]*)")
+
+
+            def readable():
+                for name in ("modules", "scripts"):
+                    for f in sorted(pathlib.Path(name).rglob("*")):
+                        if f.is_file():
+                            try:
+                                yield f, f.read_text()
+                            except (UnicodeDecodeError, OSError):
+                                continue
+
+
+            # What the scripts ask of a tree that is not this one.
+            wanted, other_tags = {}, set()
+            for _, text in readable():
+                for mm in ref.finditer(text):
+                    if mm.group("tag") != tag:
+                        wanted.setdefault((mm.group("root"), mm.group("rest").split("/")[0]),
+                                          set()).add(mm.group("tag"))
+                        other_tags.add(mm.group("tag"))
+
+            if not wanted:
+                print("Process scripts already point at %s" % tag)
+                raise SystemExit(0)
+
+            missing = sorted(pkg for (root, pkg) in wanted
+                             if not (pathlib.Path(root) / tag / pkg).is_dir())
+            if missing:
+                raise SystemExit(
+                    "ERROR: %s has no %s, so the process scripts cannot be repointed at it. "
+                    "Leaving them would run this tree's interpreter against another tree's "
+                    "libraries." % (tag, ", ".join(missing)))
+
+            patched = 0
+            for f, text in readable():
+                new = ref.sub(lambda mm: "%s/%s/%s" % (mm.group("root"), tag, mm.group("rest")), text)
+                if new != text:
+                    f.write_text(new)
+                    patched += 1
+            print("Repointed %d process script(s) from %s at %s"
+                  % (patched, ", ".join(sorted(other_tags)), tag))
+            PY2EOF
+
 
             mkdir -p dataset/~{run_name}/gsi-input
             mkdir -p dataset/~{run_name}/nf-input
@@ -109,6 +228,145 @@ This section lists command(s) run by biomodalQC workflow
             work_dir="dataset"
             EOF
             
+            # ---------------------------------------------------------------------------
+            # Scheduler and wall-time settings, appended to the config the run script passes
+            # first, so they win over what it sets. Nothing is written for an sge run that
+            # leaves processTime empty, so that path keeps exactly the config in place.
+            # ---------------------------------------------------------------------------
+            SCHED_SCHEDULER="${SCHEDULER}" \
+            SCHED_PARTITION="~{slurmPartition}" \
+            SCHED_ACCOUNT="~{slurmAccount}" \
+            SCHED_BEFORE="~{processBeforeScript}" \
+            SCHED_TIME="~{processTime}" \
+            SCHED_MODULE="~{modules}" \
+            SCHED_BINDS="~{sep=',' singularityBinds}" \
+            SCHED_CONFIG="$(pwd)/conf/nextflow.config.sge.deep" \
+            SCHED_ERROR_CONFIG="$(pwd)/conf/error.config" \
+            python3 <<'PYEOF'
+            import os, pathlib, re
+
+            sched = os.environ["SCHED_SCHEDULER"]
+            cfg_path = pathlib.Path(os.environ["SCHED_CONFIG"])
+            cfg = cfg_path.read_text()
+
+            SELECTOR = re.compile(r"^\s*withName:\s*'([^']+)'\s*\{([^{}]*)\}", re.M)
+            SGE_RESOURCE = re.compile(r"-pe\s+\S+\s+(\d+)\b|h_vmem=(\d+(?:\.\d+)?)([KMGT])")
+
+
+            def sge_resources(opts):
+                cpus = mem = None
+                for m in SGE_RESOURCE.finditer(opts):
+                    if m.group(1):
+                        cpus = int(m.group(1))
+                    elif m.group(2):
+                        mem = "%s%sB" % (m.group(2), m.group(3))
+                return cpus, mem
+
+
+            # What each selector asks for. Resources here exist only as SGE submit strings -- the
+            # pipeline's own config sets container and nothing else -- so another scheduler needs
+            # them translated, not cleared. Read at run time so a module upgrade is picked up.
+            requests, sets_time = {}, set()
+            for m in SELECTOR.finditer(cfg):
+                name, body = m.group(1), m.group(2)
+                opts = re.search(r'clusterOptions\s*=\s*"([^"]*)"', body)
+                if opts:
+                    requests[name] = sge_resources(opts.group(1))
+                if re.search(r"\btime\s*=", body):
+                    sets_time.add(name)
+
+            generic, per_selector, notes = [], {}, []
+
+            if sched == "slurm":
+                account = os.environ["SCHED_ACCOUNT"]
+                cluster_opts = "--account=%s" % account if account else ""
+                generic += [
+                    "executor = 'slurm'",
+                    "queue = '%s'" % os.environ["SCHED_PARTITION"],
+                    "clusterOptions = '%s'" % cluster_opts,
+                    "module = '%s'" % os.environ["SCHED_MODULE"],
+                ]
+                before = os.environ["SCHED_BEFORE"]
+                if before:
+                    generic.append("beforeScript = '%s'" % before)
+
+                unreadable = [n for n, (c, m) in requests.items() if c is None or m is None]
+                if unreadable:
+                    raise SystemExit(
+                        "ERROR: cannot read cpus/memory out of the SGE clusterOptions for: %s. "
+                        "Keeping them would submit in the wrong scheduler's syntax and clearing "
+                        "them would submit with no request at all, so neither is safe."
+                        % ", ".join(sorted(unreadable)))
+                for name, (cpus, mem) in requests.items():
+                    per_selector.setdefault(name, []).extend(
+                        ["cpus = %d" % cpus, "memory = '%s'" % mem,
+                         "clusterOptions = '%s'" % cluster_opts])
+                notes.append("translated %d selectors from SGE clusterOptions to cpus/memory"
+                             % len(requests))
+            else:
+                m = re.search(r'^\s*module\s*=\s*"([^"]*)"', cfg, re.M)
+                if m and m.group(1) != os.environ["SCHED_MODULE"]:
+                    print("WARNING: the pipeline config loads module '%s' on the execution nodes "
+                          "but this task loads '%s'" % (m.group(1), os.environ["SCHED_MODULE"]))
+
+            proc_time = os.environ["SCHED_TIME"]
+            if proc_time:
+                generic.append("time = '%s'" % proc_time)
+                for name in sorted(set(requests) | sets_time):
+                    per_selector.setdefault(name, []).append("time = '%s'" % proc_time)
+                notes.append("time set to %s" % proc_time)
+
+            if sched == "slurm":
+                # error.config is passed after this file, so its strategy wins and has to be
+                # amended in place. A job that never reached the scheduler has no exit status,
+                # which the pipeline's own list does not match, so it is ignored and everything
+                # downstream then waits on a channel that never fills. Only that case changes.
+                err_cfg = pathlib.Path(os.environ["SCHED_ERROR_CONFIG"])
+                err_cfg.write_text(err_cfg.read_text() + "\n".join([
+                    "",
+                    "// ---- SCHEDULER SETTINGS (generated per run) ----",
+                    "process {",
+                    "    errorStrategy = {",
+                    "        if (task.exitStatus == Integer.MAX_VALUE) return 'terminate'",
+                    "        sleep(Math.pow(2, task.attempt) as long)",
+                    "        return task.exitStatus in [0, 2, 10, 14] ? 'retry' : 'ignore'",
+                    "    }",
+                    "}",
+                    "",
+                ]))
+                print("Scheduler settings: a job that fails to reach the scheduler now "
+                      "terminates the run instead of being ignored")
+
+            binds = [b for b in os.environ["SCHED_BINDS"].split(",") if b]
+
+            if generic or per_selector or binds:
+                lines = ["", "// ---- SCHEDULER SETTINGS (generated per run) ----"]
+                if generic or per_selector:
+                    lines.append("process {")
+                    lines += ["    %s" % g for g in generic]
+                    lines += ["    withName: '%s' { %s }" % (n, "; ".join(a))
+                              for n, a in sorted(per_selector.items())]
+                    lines.append("}")
+                if binds:
+                    lines += ["singularity {", "    runOptions = '-B %s'" % ",".join(binds), "}"]
+                if sched == "slurm":
+                    # The head job exports a java tmpdir under its own node's /tmp and every
+                    # job it submits inherits it, so a job that lands on another node cannot
+                    # create a temp file. Point it at the task directory instead, which is on
+                    # the filesystem every node shares.
+                    lines += ["env {", "    _JAVA_OPTIONS = '-Djava.io.tmpdir=.'", "}"]
+                with cfg_path.open("a") as fh:
+                    fh.write("\n".join(lines) + "\n")
+                for n in notes:
+                    print("Scheduler settings: %s" % n)
+            PYEOF
+
+            # Two processes copy their helper scripts from $INIT_FOLDER, which is the
+            # read-only module. Point it at the copy beside them so they take the repointed
+            # scripts and not the shipped ones. Done last: the repointing above reads the
+            # module's own path to learn which tree it was installed from.
+            export INIT_FOLDER="$(pwd)"
+
             ./run_biomodal_qc.sh ./input_config.txt
             cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/dqsreport/~{sample_id}_dqsummary.html ../
             cp dataset/~{run_name}/nf-result/duet-1.1.2_~{tag}_~{mode}/pipeline_report/~{run_name}_~{mode}_Summary.csv ../
