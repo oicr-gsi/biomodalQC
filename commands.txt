@@ -128,6 +128,48 @@ This section lists command(s) run by biomodalQC workflow
                   % (patched, ", ".join(sorted(other_tags)), tag))
             PY2EOF
 
+            # ---------------------------------------------------------------------------
+            # The pipeline asks for some tools by name with no version, which resolves to
+            # whatever the cluster's default happens to be. A default that moves to a build
+            # the execution nodes cannot run breaks the workflow with nothing changed here,
+            # and pinning the version in this task alone is not enough: the scripts load
+            # their own, which then conflicts with it. Pin the scripts to the versions this
+            # task declares, so both ask for the same thing. Only an unversioned load is
+            # rewritten; one the pipeline already pins is left alone.
+            # ---------------------------------------------------------------------------
+            PIN_MODULES="~{modules}" python3 <<'PY3EOF'
+            import os, pathlib, re
+
+            pins = dict(spec.split("/", 1) for spec in os.environ["PIN_MODULES"].split()
+                        if "/" in spec)
+            if not pins:
+                raise SystemExit(0)
+
+            load = re.compile(r"^(?P<lead>\s*module\s+load\s+)(?P<name>%s)(?P<tail>\s|$)"
+                              % "|".join(re.escape(n) for n in sorted(pins)), re.M)
+
+            pinned = []
+            for name in ("modules", "scripts"):
+                for f in sorted(pathlib.Path(name).rglob("*")):
+                    if not f.is_file():
+                        continue
+                    try:
+                        text = f.read_text()
+                    except (UnicodeDecodeError, OSError):
+                        continue
+                    new = load.sub(lambda mm: "%s%s/%s%s" % (mm.group("lead"), mm.group("name"),
+                                                             pins[mm.group("name")],
+                                                             mm.group("tail")), text)
+                    if new != text:
+                        f.write_text(new)
+                        pinned.append(str(f))
+            if pinned:
+                print("Pinned module versions in %d process script(s): %s"
+                      % (len(pinned), ", ".join(pinned)))
+            else:
+                print("No unversioned module load to pin")
+            PY3EOF
+
 
             mkdir -p dataset/~{run_name}/gsi-input
             mkdir -p dataset/~{run_name}/nf-input

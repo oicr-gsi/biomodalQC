@@ -10,7 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   version, so it resolved to whatever the cluster's default was, and a default that moved
   to a build the execution nodes cannot run broke the workflow with no change on our side.
   The module directive Nextflow is given separates modules with colons, where the runtime
-  attribute separates them with spaces.
+  attribute separates them with spaces. Pinning it for the task alone is not enough, since
+  the process scripts load their own and that conflicts with it, so an unversioned
+  `module load` in the pipeline's scripts is rewritten to the version this task declares.
+  A load the pipeline already pins is left alone.
 
 ### Fixed
 - Unpack container images somewhere that allows execution. The shared temporary directory
