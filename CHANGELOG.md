@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-11-10
+### Changed
+- Pin `samtools` in `modules`. The pipeline's BAMLET process loads it by name with no
+  version, so it resolved to whatever the cluster's default was, and a default that moved
+  to a build the execution nodes cannot run broke the workflow with no change on our side.
+  The module directive Nextflow is given separates modules with colons, where the runtime
+  attribute separates them with spaces. Pinning it for the task alone is not enough, since
+  the process scripts load their own and that conflicts with it, so an unversioned
+  `module load` in the pipeline's scripts is rewritten to the version this task declares.
+  A load the pipeline already pins is left alone.
+
+### Fixed
+- Unpack container images somewhere that allows execution. The shared temporary directory
+  is mounted noexec on some clusters, where unpacking succeeds and the first command inside
+  the container fails with `fork/exec /bin/bash: permission denied`. Slurm processes now
+  pick a directory by running something from each candidate, bare `/tmp` is refused, and a
+  run where none is usable stops with that reason. Nextflow launches the container with
+  the environment cleared except for `PATH`, so the setting is carried in by a wrapper
+  placed on `PATH` rather than by an export alone.
+
 ## [1.2.0] - 2026-09-01
 ### Added
 - `scheduler`, `slurmPartition`, `slurmAccount`, `singularityBinds`,
