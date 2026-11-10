@@ -50,7 +50,7 @@ Parameter|Value|Default|Description
 `mergeFastqs.jobMemory`|Int|32|Memory allocated for this job (GB)
 `mergeFastqs.threads`|Int|1|Requested CPU threads
 `mergeFastqs.timeout`|Int|8|Hours before task timeout
-`runBiomodalQC.modules`|String|"biomodalqc/1.0.0"|Required environment modules
+`runBiomodalQC.modules`|String|"biomodalqc/1.0.0 samtools/1.16.1"|Environment modules the task and every pipeline process load. samtools is pinned here because the pipeline asks for it by name with no version, which otherwise resolves to whatever the cluster's default happens to be
 `runBiomodalQC.jobMemory`|Int|16|Memory allocated for this job (GB)
 `runBiomodalQC.threads`|Int|2|Requested CPU threads
 `runBiomodalQC.timeout`|Int|48|Hours before task timeout
@@ -277,6 +277,10 @@ This section lists command(s) run by biomodalQC workflow
 
             generic, per_selector, notes = [], {}, []
 
+            # The runtime attribute separates modules with spaces, Nextflow's own module
+            # directive with colons.
+            modules = ":".join(os.environ["SCHED_MODULE"].split())
+
             if sched == "slurm":
                 account = os.environ["SCHED_ACCOUNT"]
                 cluster_opts = "--account=%s" % account if account else ""
@@ -284,7 +288,7 @@ This section lists command(s) run by biomodalQC workflow
                     "executor = 'slurm'",
                     "queue = '%s'" % os.environ["SCHED_PARTITION"],
                     "clusterOptions = '%s'" % cluster_opts,
-                    "module = '%s'" % os.environ["SCHED_MODULE"],
+                    "module = '%s'" % modules,
                 ]
                 # beforeScript runs on the host ahead of the container launch. An image
                 # is unpacked into a sandbox and then run from there, so the directory the
@@ -346,9 +350,9 @@ This section lists command(s) run by biomodalQC workflow
                              % len(requests))
             else:
                 m = re.search(r'^\s*module\s*=\s*"([^"]*)"', cfg, re.M)
-                if m and m.group(1) != os.environ["SCHED_MODULE"]:
-                    print("WARNING: the pipeline config loads module '%s' on the execution nodes "
-                          "but this task loads '%s'" % (m.group(1), os.environ["SCHED_MODULE"]))
+                if m and m.group(1) != modules:
+                    print("NOTE: the pipeline config loads module '%s' on the execution nodes, "
+                          "this task loads '%s'" % (m.group(1), modules))
 
             proc_time = os.environ["SCHED_TIME"]
             if proc_time:

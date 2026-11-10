@@ -4,7 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.1] - 2026-11-10
+## [1.3.0] - 2026-11-10
+### Changed
+- Pin `samtools` in `modules`. The pipeline's BAMLET process loads it by name with no
+  version, so it resolved to whatever the cluster's default was, and a default that moved
+  to a build the execution nodes cannot run broke the workflow with no change on our side.
+  The module directive Nextflow is given separates modules with colons, where the runtime
+  attribute separates them with spaces.
+
 ### Fixed
 - Unpack container images somewhere that allows execution. The shared temporary directory
   is mounted noexec on some clusters, where unpacking succeeds and the first command inside

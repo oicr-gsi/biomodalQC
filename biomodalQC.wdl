@@ -150,7 +150,7 @@ task runBiomodalQC{
             Array[String] singularityBinds = []
             String processBeforeScript = ""
             String processTime = ""
-            String modules = "biomodalqc/1.0.0"
+            String modules = "biomodalqc/1.0.0 samtools/1.16.1"
             Int jobMemory = 16
             Int threads = 2
             Int timeout = 48
@@ -172,7 +172,7 @@ task runBiomodalQC{
             singularityBinds: "Paths bound into every container"
             processBeforeScript: "Script run before every Nextflow process. Empty keeps the pipeline's own"
             processTime: "Wall-clock limit for every Nextflow process, as a Nextflow duration such as 24h. Empty keeps the pipeline config's own"
-            modules: "Required environment modules"
+            modules: "Environment modules the task and every pipeline process load. samtools is pinned here because the pipeline asks for it by name with no version, which otherwise resolves to whatever the cluster's default happens to be"
             jobMemory: "Memory allocated for this job (GB)"
             threads: "Requested CPU threads"
             timeout: "Hours before task timeout"
@@ -380,6 +380,10 @@ task runBiomodalQC{
 
             generic, per_selector, notes = [], {}, []
 
+            # The runtime attribute separates modules with spaces, Nextflow's own module
+            # directive with colons.
+            modules = ":".join(os.environ["SCHED_MODULE"].split())
+
             if sched == "slurm":
                 account = os.environ["SCHED_ACCOUNT"]
                 cluster_opts = "--account=%s" % account if account else ""
@@ -387,7 +391,7 @@ task runBiomodalQC{
                     "executor = 'slurm'",
                     "queue = '%s'" % os.environ["SCHED_PARTITION"],
                     "clusterOptions = '%s'" % cluster_opts,
-                    "module = '%s'" % os.environ["SCHED_MODULE"],
+                    "module = '%s'" % modules,
                 ]
                 # beforeScript runs on the host ahead of the container launch. An image
                 # is unpacked into a sandbox and then run from there, so the directory the
@@ -449,9 +453,9 @@ task runBiomodalQC{
                              % len(requests))
             else:
                 m = re.search(r'^\s*module\s*=\s*"([^"]*)"', cfg, re.M)
-                if m and m.group(1) != os.environ["SCHED_MODULE"]:
-                    print("WARNING: the pipeline config loads module '%s' on the execution nodes "
-                          "but this task loads '%s'" % (m.group(1), os.environ["SCHED_MODULE"]))
+                if m and m.group(1) != modules:
+                    print("NOTE: the pipeline config loads module '%s' on the execution nodes, "
+                          "this task loads '%s'" % (m.group(1), modules))
 
             proc_time = os.environ["SCHED_TIME"]
             if proc_time:
