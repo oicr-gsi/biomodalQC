@@ -389,9 +389,50 @@ task runBiomodalQC{
                     "clusterOptions = '%s'" % cluster_opts,
                     "module = '%s'" % os.environ["SCHED_MODULE"],
                 ]
+                # beforeScript runs on the host ahead of the container launch. An image
+                # is unpacked into a sandbox and then run from there, so the directory the
+                # runtime unpacks into has to allow execution as well as be writable.
+                # Grid Engine always sets TMPDIR, Slurm does not, and bare /tmp is refused
+                # even where it works, since that is the path being mounted noexec as
+                # clusters are hardened. Each candidate is tested by running something
+                # from it rather than assumed.
+                guard = [
+                    'for d in "${TMP:-}" "${TMPDIR:-}" "${PWD}"; do',
+                    '  [ -n "$d" ] && [ "$d" != "/tmp" ] && [ -d "$d" ] && [ -w "$d" ] || continue',
+                    '  p=$(mktemp "$d/exectest.XXXXXX" 2>/dev/null) || continue',
+                    "  { echo '#!/bin/sh'; echo 'exit 0'; } > \"$p\"",
+                    '  if chmod +x "$p" 2>/dev/null && "$p" 2>/dev/null; then rm -f "$p"; export TMPDIR="$d"; break; fi',
+                    '  rm -f "$p"',
+                    'done',
+                    '[ -n "${TMPDIR:-}" ] && [ "${TMPDIR}" != "/tmp" ] || { echo "ERROR: no writable directory that allows execution; set TMP to one" >&2; exit 1; }',
+                    'export SINGULARITY_TMPDIR="${TMPDIR}" APPTAINER_TMPDIR="${TMPDIR}"',
+                    # Nextflow launches the container with the environment cleared except
+                    # for PATH, so exporting the variable above is not enough on its own:
+                    # the runtime never sees it and falls back to its built-in default.
+                    # A wrapper early on PATH sets it again for that one call and then
+                    # runs the real binary, which it resolves now rather than through
+                    # PATH, so it cannot end up calling itself.
+                    'shim="${PWD}/.container-shim"',
+                    'mkdir -p "${shim}"',
+                    'for exe in singularity apptainer; do',
+                    '  real=$(command -v "${exe}" 2>/dev/null) || continue',
+                    '  { echo \'#!/bin/sh\'',
+                    '    echo "export SINGULARITY_TMPDIR=${TMPDIR} APPTAINER_TMPDIR=${TMPDIR}"',
+                    '    echo "exec ${real} " \'"$@"\'',
+                    '  } > "${shim}/${exe}"',
+                    '  chmod +x "${shim}/${exe}"',
+                    'done',
+                    'export PATH="${shim}:${PATH}"',
+                ]
+                # The caller's script is appended rather than substituted, so a site that
+                # has to put its container runtime on PATH does not lose the guard.
                 before = os.environ["SCHED_BEFORE"]
                 if before:
-                    generic.append("beforeScript = '%s'" % before)
+                    guard.append(before)
+                # Triple single quotes make a Groovy string with no interpolation, so the
+                # shell variables above reach the shell. It must stay free of backslash
+                # escapes, which Groovy would process here rather than pass on.
+                generic.append("beforeScript = \'\'\'%s\'\'\'" % "\n".join(guard))
 
                 unreadable = [n for n, (c, m) in requests.items() if c is None or m is None]
                 if unreadable:

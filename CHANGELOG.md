@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-11-10
+### Fixed
+- Unpack container images somewhere that allows execution. The shared temporary directory
+  is mounted noexec on some clusters, where unpacking succeeds and the first command inside
+  the container fails with `fork/exec /bin/bash: permission denied`. Slurm processes now
+  pick a directory by running something from each candidate, bare `/tmp` is refused, and a
+  run where none is usable stops with that reason. Nextflow launches the container with
+  the environment cleared except for `PATH`, so the setting is carried in by a wrapper
+  placed on `PATH` rather than by an export alone.
+
 ## [1.2.0] - 2026-09-01
 ### Added
 - `scheduler`, `slurmPartition`, `slurmAccount`, `singularityBinds`,
