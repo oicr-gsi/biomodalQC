@@ -1,7 +1,7 @@
 [
     {
         "arguments": {
-            "biomodalQC.runBiomodalQC.modules": "biomodalqc/1.0.0",
+            "biomodalQC.runBiomodalQC.modules": null,
             "biomodalQC.runBiomodalQC.timeout": 48,
             "biomodalQC.run_name": "DNNHV_Test",
             "biomodalQC.runBiomodalQC.threads": 2,
