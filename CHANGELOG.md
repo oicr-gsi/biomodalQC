@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-11-10
+### Fixed
+- The pipeline instance is copied through `tar` rather than `cp`, so the module's
+  read-only directory modes are not reproduced. `cp` sets a directory's mode from the
+  source whatever is asked of it, which makes each one unwritable and leaves it empty, and
+  where the filesystem refuses the mode outright the only complaint is about permissions,
+  so the run went on to die much later looking for a config file. A directory that arrives
+  empty now stops the task.
+
+### Changed
+- `biomodalqc/1.0.0.1`, which runs the pipeline under apptainer rather than singularity
+  3.9.4. The same software; only the container runtime differs. Apptainer mounts an image
+  rather than unpacking it into a temporary directory, so nothing of ours runs before a
+  Nextflow process any more and `beforeScript` carries only `processBeforeScript`.
+- Pin `samtools` in `modules`. The pipeline's BAMLET process loads it by name with no
+  version, so it resolved to whatever the cluster's default was, and a default that moved
+  to a build the execution nodes cannot run broke the workflow with no change on our side.
+  The module directive Nextflow is given separates modules with colons, where the runtime
+  attribute separates them with spaces. Pinning it for the task alone is not enough, since
+  the process scripts load their own and that conflicts with it, so an unversioned
+  `module load` in the pipeline's scripts is rewritten to the version this task declares.
+  A load the pipeline already pins is left alone.
+
+### Fixed
+- Unpack container images somewhere that allows execution. The shared temporary directory
+  is mounted noexec on some clusters, where unpacking succeeds and the first command inside
+  the container fails with `fork/exec /bin/bash: permission denied`. Slurm processes now
+  pick a directory by running something from each candidate, bare `/tmp` is refused, and a
+  run where none is usable stops with that reason. Nextflow launches the container with
+  the environment cleared except for `PATH`, so the setting is carried in by a wrapper
+  placed on `PATH` rather than by an export alone.
+
 ## [1.2.0] - 2026-09-01
 ### Added
 - `scheduler`, `slurmPartition`, `slurmAccount`, `singularityBinds`,

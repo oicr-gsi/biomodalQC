@@ -76,7 +76,7 @@ workflow biomodalQC {
             description: "Workflow for biomodalQC, QC workflow for biomodal pipeline"
                 dependencies: [
                     {
-                    name: "biomodalqc/1.0.0",
+                    name: "biomodalqc/1.0.0.1",
                     url: "https://gitlab.oicr.on.ca/ResearchIT/modulator/-/blob/master/code/gsi/71_biomodalqc.yaml?ref_type=heads"
                     }
                 ]
@@ -150,7 +150,7 @@ task runBiomodalQC{
             Array[String] singularityBinds = []
             String processBeforeScript = ""
             String processTime = ""
-            String modules = "biomodalqc/1.0.0"
+            String modules = "biomodalqc/1.0.0.1 samtools/1.16.1"
             Int jobMemory = 16
             Int threads = 2
             Int timeout = 48
@@ -172,7 +172,7 @@ task runBiomodalQC{
             singularityBinds: "Paths bound into every container"
             processBeforeScript: "Script run before every Nextflow process. Empty keeps the pipeline's own"
             processTime: "Wall-clock limit for every Nextflow process, as a Nextflow duration such as 24h. Empty keeps the pipeline config's own"
-            modules: "Required environment modules"
+            modules: "Environment modules the task and every pipeline process load. samtools is pinned here because the pipeline asks for it by name with no version, which otherwise resolves to whatever the cluster's default happens to be"
             jobMemory: "Memory allocated for this job (GB)"
             threads: "Requested CPU threads"
             timeout: "Hours before task timeout"
@@ -231,8 +231,25 @@ task runBiomodalQC{
             # back into the module tree and past anything changed here. Dotfiles are left
             # behind: the module ships a .nextflow cache from its own build.
             mkdir init_folder
-            cp -rL "$INIT_FOLDER"/* ./init_folder/
-            chmod -R u+w ./init_folder
+            # Copied through tar rather than with cp, so the module's read-only
+            # directory modes are not reproduced: cp sets a directory's mode from the
+            # source whatever is asked of it, which makes each one unwritable and leaves
+            # it empty, and where the filesystem refuses the mode outright the only
+            # complaint is about permissions. --mode adds write as the archive is read,
+            # and X keeps the execute bit on directories and on what already had one.
+            # -h dereferences, as the copy must. Top-level dotfiles stay behind: the
+            # module ships a .nextflow cache from its own build.
+            tar -C "$INIT_FOLDER" --exclude='./.*' --mode='u+rwX' -chf - . \
+                | tar -xf - -C ./init_folder --no-same-owner
+
+            # An empty directory here means the copy reported success and did nothing,
+            # which is how this last failed; the patching below would then rewrite
+            # nothing and the run would die much later looking for a config.
+            for required in modules scripts conf workflows bin; do
+                [ -n "$(ls -A "./init_folder/${required}" 2>/dev/null)" ] || {
+                    echo "ERROR: ${required}/ is missing or empty in the copied instance" >&2
+                    exit 1; }
+            done
             cd init_folder
 
             # ---------------------------------------------------------------------------
@@ -296,6 +313,48 @@ task runBiomodalQC{
             print("Repointed %d process script(s) from %s at %s"
                   % (patched, ", ".join(sorted(other_tags)), tag))
             PY2EOF
+
+            # ---------------------------------------------------------------------------
+            # The pipeline asks for some tools by name with no version, which resolves to
+            # whatever the cluster's default happens to be. A default that moves to a build
+            # the execution nodes cannot run breaks the workflow with nothing changed here,
+            # and pinning the version in this task alone is not enough: the scripts load
+            # their own, which then conflicts with it. Pin the scripts to the versions this
+            # task declares, so both ask for the same thing. Only an unversioned load is
+            # rewritten; one the pipeline already pins is left alone.
+            # ---------------------------------------------------------------------------
+            PIN_MODULES="~{modules}" python3 <<'PY3EOF'
+            import os, pathlib, re
+
+            pins = dict(spec.split("/", 1) for spec in os.environ["PIN_MODULES"].split()
+                        if "/" in spec)
+            if not pins:
+                raise SystemExit(0)
+
+            load = re.compile(r"^(?P<lead>\s*module\s+load\s+)(?P<name>%s)(?P<tail>\s|$)"
+                              % "|".join(re.escape(n) for n in sorted(pins)), re.M)
+
+            pinned = []
+            for name in ("modules", "scripts"):
+                for f in sorted(pathlib.Path(name).rglob("*")):
+                    if not f.is_file():
+                        continue
+                    try:
+                        text = f.read_text()
+                    except (UnicodeDecodeError, OSError):
+                        continue
+                    new = load.sub(lambda mm: "%s%s/%s%s" % (mm.group("lead"), mm.group("name"),
+                                                             pins[mm.group("name")],
+                                                             mm.group("tail")), text)
+                    if new != text:
+                        f.write_text(new)
+                        pinned.append(str(f))
+            if pinned:
+                print("Pinned module versions in %d process script(s): %s"
+                      % (len(pinned), ", ".join(pinned)))
+            else:
+                print("No unversioned module load to pin")
+            PY3EOF
 
 
             mkdir -p dataset/~{run_name}/gsi-input
@@ -380,6 +439,10 @@ task runBiomodalQC{
 
             generic, per_selector, notes = [], {}, []
 
+            # The runtime attribute separates modules with spaces, Nextflow's own module
+            # directive with colons.
+            modules = ":".join(os.environ["SCHED_MODULE"].split())
+
             if sched == "slurm":
                 account = os.environ["SCHED_ACCOUNT"]
                 cluster_opts = "--account=%s" % account if account else ""
@@ -387,11 +450,14 @@ task runBiomodalQC{
                     "executor = 'slurm'",
                     "queue = '%s'" % os.environ["SCHED_PARTITION"],
                     "clusterOptions = '%s'" % cluster_opts,
-                    "module = '%s'" % os.environ["SCHED_MODULE"],
+                    "module = '%s'" % modules,
                 ]
+                # Nothing of ours runs before a process: apptainer mounts an image
+                # rather than unpacking it, so there is no temporary directory to steer.
+                # Only the caller's script, if there is one.
                 before = os.environ["SCHED_BEFORE"]
                 if before:
-                    generic.append("beforeScript = '%s'" % before)
+                    generic.append("beforeScript = \'\'\'%s\'\'\'" % before)
 
                 unreadable = [n for n, (c, m) in requests.items() if c is None or m is None]
                 if unreadable:
@@ -408,9 +474,9 @@ task runBiomodalQC{
                              % len(requests))
             else:
                 m = re.search(r'^\s*module\s*=\s*"([^"]*)"', cfg, re.M)
-                if m and m.group(1) != os.environ["SCHED_MODULE"]:
-                    print("WARNING: the pipeline config loads module '%s' on the execution nodes "
-                          "but this task loads '%s'" % (m.group(1), os.environ["SCHED_MODULE"]))
+                if m and m.group(1) != modules:
+                    print("NOTE: the pipeline config loads module '%s' on the execution nodes, "
+                          "this task loads '%s'" % (m.group(1), modules))
 
             proc_time = os.environ["SCHED_TIME"]
             if proc_time:
